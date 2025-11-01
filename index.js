@@ -249,7 +249,7 @@ discord.on("messageCreate", async (message) => {
 });
 
 // === AUTOMATIC MEME EVERY 1 MINUTE ===
-cron.schedule("0 */2 * * *", async () => {
+cron.schedule("0 */24 * * *", async () => {
   console.log(
     `[${new Date().toLocaleTimeString()}] 🕒 Auto meme job running...`
   );
