@@ -7,6 +7,7 @@ const {
   Routes,
 } = require("discord.js");
 const cron = require("node-cron");
+const express = require("express");
 const MagicHourImport = require("magic-hour");
 
 // Handle CommonJS default export
@@ -30,6 +31,61 @@ const CHANNEL_SETUP_COMMAND = "setmemechannel";
 
 // === Store multiple channels per guild ===
 const guildChannelMap = new Map(); // guildId -> [channelIds]
+
+// === HEALTH CHECK API SERVER ===
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Bot start time for uptime tracking
+const startTime = Date.now();
+
+app.use(express.json());
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  const uptime = Math.floor((Date.now() - startTime) / 1000); // uptime in seconds
+  const uptimeMinutes = Math.floor(uptime / 60);
+  const uptimeHours = Math.floor(uptimeMinutes / 60);
+
+  res.status(200).json({
+    status: "healthy",
+    service: "Magic Hour Discord Meme Bot",
+    uptime: {
+      seconds: uptime,
+      formatted: `${uptimeHours}h ${uptimeMinutes % 60}m ${uptime % 60}s`,
+    },
+    discord: {
+      connected: discord.ws.status === 0,
+      status: discord.ws.status,
+      guilds: discord.guilds.cache.size,
+      ping: discord.ws.ping,
+    },
+    channels: {
+      configured: guildChannelMap.size,
+      total: Array.from(guildChannelMap.values()).reduce(
+        (sum, arr) => sum + arr.length,
+        0
+      ),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    message: "Magic Hour Discord Meme Bot API",
+    endpoints: {
+      health: "/health - Check bot health and status",
+    },
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Health check API running on port ${PORT}`);
+  console.log(`📊 Health endpoint: http://localhost:${PORT}/health`);
+});
 
 // === ON READY ===
 discord.once("ready", () => {
