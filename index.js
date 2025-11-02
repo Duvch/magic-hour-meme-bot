@@ -221,30 +221,26 @@ discord.on("messageCreate", async (message) => {
 
   const contentArray = message.cleanContent.trim().split(/\s+/);
   if (contentArray[0].startsWith("@")) contentArray.shift();
-  const content = contentArray.join(" ").trim();
+  const prompt = contentArray.join(" ").trim();
 
-  if (content.toLowerCase().startsWith(BOT_COMMAND_PREFIX)) {
-    const prompt = content.substring(BOT_COMMAND_PREFIX.length).trim();
+  if (!prompt) {
+    return message.reply(
+      `Please provide a meme idea like: \`@${discord.user.username} nitin trying to play with cursor meme\``
+    );
+  }
 
-    if (!prompt) {
-      return message.reply(
-        `Please provide a meme idea like: \`@${discord.user.username} create meme when it’s finally Friday\``
-      );
-    }
+  await message.reply("🎨 Generating your meme... hang tight!");
+  const memeUrl = await generateContent(prompt);
 
-    await message.reply("🎨 Generating your meme... hang tight!");
-    const memeUrl = await generateContent(prompt);
-
-    if (memeUrl) {
-      await message.reply({
-        content: `😂 Here's your meme, ${message.author}: **${prompt}**`,
-        files: [memeUrl],
-      });
-    } else {
-      await message.reply(
-        "❌ Meme generation failed. Check MagicHour API or try another prompt."
-      );
-    }
+  if (memeUrl) {
+    await message.reply({
+      content: `😂 Here's your meme, ${message.author}: **${prompt}**`,
+      files: [memeUrl],
+    });
+  } else {
+    await message.reply(
+      "❌ Meme generation failed. Check MagicHour API or try another prompt."
+    );
   }
 });
 
