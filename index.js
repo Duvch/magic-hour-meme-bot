@@ -219,6 +219,18 @@ discord.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.mentions.has(discord.user)) return;
 
+  // Ignore replies to bot's own messages to prevent reply loops
+  if (message.reference) {
+    try {
+      const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+      if (repliedMessage.author.id === discord.user.id) {
+        return; // Silently ignore replies to bot's messages
+      }
+    } catch (error) {
+      console.error("❌ Error fetching replied message:", error);
+    }
+  }
+
   const contentArray = message.cleanContent.trim().split(/\s+/);
   if (contentArray[0].startsWith("@")) contentArray.shift();
   const prompt = contentArray.join(" ").trim();
