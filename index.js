@@ -6,7 +6,6 @@ const {
   REST,
   Routes,
 } = require("discord.js");
-const cron = require("node-cron");
 const express = require("express");
 const MagicHourImport = require("magic-hour");
 
@@ -102,7 +101,7 @@ async function registerCommands(clientId) {
   const commands = [
     {
       name: CHANNEL_SETUP_COMMAND,
-      description: "Add a channel where memes should be posted automatically",
+      description: "Add a channel where the bot can respond to mentions and generate memes",
       options: [
         {
           name: "channel",
@@ -185,39 +184,20 @@ async function generateContent(prompt) {
   }
 }
 
-// === FUNCTION: Find Most Engaging Message ===
-async function findMostEngagingMessage(channel) {
-  try {
-    const messages = await channel.messages.fetch({ limit: 50 });
-    let mostEngaging = null;
-    let maxReactions = -1;
-
-    for (const message of messages.values()) {
-      if (message.author.bot) continue;
-      let totalReactions = 0;
-      message.reactions.cache.forEach(
-        (reaction) => (totalReactions += reaction.count)
-      );
-
-      if (totalReactions > maxReactions) {
-        maxReactions = totalReactions;
-        mostEngaging = message;
-      }
-    }
-
-    if (!mostEngaging)
-      mostEngaging = messages.find((m) => !m.author.bot) || null;
-    return mostEngaging;
-  } catch (error) {
-    console.error("❌ Error finding engaging message:", error);
-    return null;
-  }
-}
-
 // === RESPOND TO @MENTIONS ===
 discord.on("messageCreate", async (message) => {
   if (message.author.bot) return;
+  
+  // Ignore @everyone and @here mentions to prevent spam
+  if (message.mentions.everyone) return;
+  
   if (!message.mentions.has(discord.user)) return;
+  
+  // Check if bot is allowed in this channel
+  const allowedChannels = guildChannelMap.get(message.guildId) || [];
+  if (allowedChannels.length > 0 && !allowedChannels.includes(message.channelId)) {
+    return; // Silently ignore mentions in non-configured channels
+  }
 
   // Ignore replies to bot's own messages to prevent reply loops
   if (message.reference) {
@@ -253,45 +233,6 @@ discord.on("messageCreate", async (message) => {
     await message.reply(
       "❌ Meme generation failed. Check MagicHour API or try another prompt."
     );
-  }
-});
-
-// === AUTOMATIC MEME EVERY 1 MINUTE ===
-cron.schedule("0 */24 * * *", async () => {
-  console.log(
-    `[${new Date().toLocaleTimeString()}] 🕒 Auto meme job running...`
-  );
-
-  for (const [guildId, channelIds] of guildChannelMap.entries()) {
-    for (const channelId of channelIds) {
-      try {
-        const channel = await discord.channels.fetch(channelId);
-        const engagingMessage = await findMostEngagingMessage(channel);
-
-        if (engagingMessage) {
-          const author = engagingMessage.author;
-          const content = engagingMessage.content;
-          const prompt = `Create a funny meme based on this message: "${content}"`;
-
-          console.log(
-            `🔥 Generating auto meme for ${author.username} in guild ${guildId}, channel ${channel.name}`
-          );
-          const memeUrl = await generateContent(prompt);
-
-          if (memeUrl) {
-            await channel.send({
-              content: `🤣 **Auto Meme Time!** This one’s for you, ${author}! (Based on: "${content.substring(
-                0,
-                50
-              )}...")`,
-              files: [memeUrl],
-            });
-          }
-        }
-      } catch (err) {
-        console.error("❌ Error in auto meme job:", err);
-      }
-    }
   }
 });
 
